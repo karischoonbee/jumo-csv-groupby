@@ -2,8 +2,9 @@
 Technical exercise for JUMO interviewing process
 
 ## Requirements
-Python 3
-Pip
+- Python 3
+- Setuptools
+- Pip
 
 ## Installation
 ```bash
@@ -29,7 +30,7 @@ Options:
 ```
 
 ## Design considerations
-Pandas and similar modules not allowed
-Uses the built-in Python CSV module for reading files (it felt like np.loadtxt/genfromtxt would be cheating)
-Uses numpy arrays and logical operations on vectors to speed things up considerably.
+- Pandas and similar modules were not allowed
+- Uses the built-in Python CSV module for reading files (it felt like np.loadtxt/genfromtxt would be cheating)
+- Uses numpy arrays and logical operations on vectors to speed things up considerably.
 
