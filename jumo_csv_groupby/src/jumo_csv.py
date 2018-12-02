@@ -3,6 +3,7 @@ import csv
 from collections import OrderedDict
 from itertools import product
 from tabulate import tabulate
+from dateutil import parser
 
 
 class Frame:
@@ -20,7 +21,7 @@ class Frame:
         return self.__len
 
     def size(self):
-        return (self.__len, len(self.columns.keys()))
+        return self.__len, len(self.columns.keys())
 
     def __str__(self):
         if self.__len < 2:
@@ -100,16 +101,16 @@ class Frame:
         :return:
         """
         self.__init__()
+        self.filepath = filepath
 
         with open(filepath, 'r') as csvfile:
-            dialect = csv.Sniffer().sniff(csvfile.read(1024))
+            self.dialect = csv.Sniffer().sniff(csvfile.read(1024))
             csvfile.seek(0)
 
             if column_names is None:
-                reader = csv.DictReader(csvfile, dialect=dialect, fieldnames=None)
+                reader = csv.DictReader(csvfile, dialect=self.dialect, fieldnames=None)
             else:
-                reader = csv.DictReader(csvfile, dialect=dialect, fieldnames=column_names.split(','))
-                print(reader.fieldnames)
+                reader = csv.DictReader(csvfile, dialect=self.dialect, fieldnames=column_names.split(','))
 
             # create the columns
             for column_name in reader.fieldnames:
@@ -120,17 +121,33 @@ class Frame:
                 self.__len += 1
 
                 for column_name in reader.fieldnames:
-                    try:
-                        val = np.float64(row[column_name])
-                    except ValueError:
-                        val = row[column_name]
+
+                    # hackity hack for grouping by month
+                    if 'date' in column_name.lower():
+                        try:
+                            val = parser.parse(row[column_name]).strftime('%Y-%m')
+                        except ValueError:
+                            val = row[column_name]
+                    else:
+                        try:
+                            val = np.float64(row[column_name])
+                        except ValueError:
+                            val = row[column_name]
 
                     self.columns[column_name].append(val)
 
         # convert the columns to numpy arrays
         for name in self.get_column_names():
             self.columns[name] = np.asarray(self.columns[name])
+
         return self
+
+    def write_csv(self, out_path, dialect):
+        with open(out_path, 'w', newline='') as output_csv:
+            writer = csv.writer(output_csv, delimiter=',', dialect=dialect)
+            writer.writerow(self.columns.keys())
+            for values in zip(*self.columns.values()):
+                writer.writerow(values)
 
 
 class GroupBy:
@@ -175,12 +192,15 @@ class GroupBy:
             combos[tuple(combo)] = True
         return combos.keys()
 
-    def __group_existing(self):
+    def __group(self, combos):
         self.groups = dict()
-        for combo in self.__get_combinations(self.grouping_columns):
+        for combo in combos:
             indices = np.all(np.column_stack([(self.f.columns[key] == value) for key, value in
                                               zip(self.grouping_columns, combo)]), axis=1)
             self.groups[combo] = indices
+
+    def __group_existing(self):
+        self.__group(self.__get_combinations(self.grouping_columns))
 
     def __get_unique_vals(self, col):
         self.__check_columns_exist(col)
@@ -191,14 +211,13 @@ class GroupBy:
         self.__unique_values = OrderedDict()
         for col in self.grouping_columns:
             self.__unique_values[col] = self.__get_unique_vals(col)
-
-        self.groups = dict()
-        for combo in product(*[self.__unique_values[col] for col in self.grouping_columns]):
-            indices = np.all(np.column_stack([(self.f.columns[key] == value) for key, value in
-                                              zip(self.grouping_columns, combo)]), axis=1)
-            self.groups[combo] = indices
+        combos = product(*[self.__unique_values[col] for col in self.grouping_columns])
+        self.__group(combos)
 
     def get_groups(self):
         for group in self.groups.items():
             yield self.grouping_columns, group
 
+
+if __name__ == '__main__':
+    f = Frame().from_csv('../../test/data/Loans.csv')
