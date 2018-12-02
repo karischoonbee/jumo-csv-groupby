@@ -1,6 +1,6 @@
 import click
 import os
-from jumo_csv_groupby.src.csv import Frame
+from jumo_csv_groupby.src.jumo_csv import Frame
 import numpy as np
 
 
@@ -24,7 +24,8 @@ def print_version(ctx, param, value):
 @click.option('-t','--aggregation-type', type=click.Choice(['sum', 'mean', 'median']), default='sum',
               help='Choose the aggregation function (defaults to sum)')
 @click.option('-g','--group-by', type=str, multiple=True, help='Group the aggregation on these columns.')
-def csv(filename, version=None, peak=False, aggregate_on=None, aggregation_type='sum', group_by=None):
+@click.option('-s','--show-all', is_flag=True, help='Show all possible groupings, not only those in the data.')
+def csv(filename, version=None, peak=False, aggregate_on=None, aggregation_type='sum', group_by=None, show_all=False):
 
     filename = os.path.expanduser(filename)
 
@@ -46,7 +47,7 @@ def csv(filename, version=None, peak=False, aggregate_on=None, aggregation_type=
     try:
         if aggregate_on is not None:
             if len(group_by):
-                click.echo(f.aggregate_on(column=aggregate_on, group_by=group_by, agg=aggregation_type))
+                click.echo(f.aggregate_on(column=aggregate_on, group_by=group_by, agg=aggregation_type, all_groups=show_all))
             else:
                 click.echo(f.aggregate_on(column=aggregate_on, agg=aggregation_type))
     except ValueError as e:
